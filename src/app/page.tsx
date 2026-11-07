@@ -6,6 +6,8 @@ import {
   Clock, Play, Pause, ExternalLink, Sparkles, Layers, Sliders, 
   History, ArrowRight, Check, X, ShieldAlert, Copy, Image as ImageIcon
 } from 'lucide-react';
+import UpdateModal, { UpdateInfo } from '@/components/UpdateModal';
+import { APP_VERSION } from '@/lib/version';
 
 function XLogo({ className = "w-5 h-5" }: { className?: string }) {
   return (
@@ -87,9 +89,34 @@ export default function Dashboard() {
   // Notifications
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
+  // Version & Updates
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
+  };
+
+  const checkUpdate = async (manual: boolean = false) => {
+    try {
+      if (manual) setIsCheckingUpdate(true);
+      const res = await fetch('/api/check-update');
+      const data = await res.json();
+      if (data.success) {
+        setUpdateInfo(data);
+        if (data.hasUpdate) {
+          setShowUpdateModal(true);
+        } else if (manual) {
+          showToast(`คุณใช้งานเวอร์ชันล่าสุดแล้ว (v${APP_VERSION})`, 'success');
+        }
+      }
+    } catch (err: any) {
+      if (manual) showToast('ไม่สามารถตรวจสอบการอัปเดตได้: ' + err.message, 'error');
+    } finally {
+      if (manual) setIsCheckingUpdate(false);
+    }
   };
 
   const fetchData = async () => {
@@ -116,6 +143,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
+    checkUpdate(false);
   }, []);
 
   // Handle Image Selection
@@ -367,9 +395,25 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Bot Live Status Pill */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs">
+          {/* Bot Live Status Pill & Version */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => checkUpdate(true)}
+              disabled={isCheckingUpdate}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs text-slate-300 hover:text-white transition cursor-pointer"
+              title="คลิกเพื่อตรวจสอบเวอร์ชันใหม่จาก GitHub"
+            >
+              <Sparkles className={`w-3.5 h-3.5 text-sky-400 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
+              <span className="font-mono">v{APP_VERSION}</span>
+              {updateInfo?.hasUpdate && (
+                <span className="flex h-2 w-2 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                </span>
+              )}
+            </button>
+
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs">
               <span className={`w-2 h-2 rounded-full ${settings?.is_active ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
               <span className="font-medium text-slate-300">
                 {settings?.is_active ? `บอททำงานอัตโนมัติ (ทุก ${settings.interval_hours} ชม.)` : 'บอทหยุดชั่วคราว (Paused)'}
@@ -1076,6 +1120,13 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* MODAL: Update Notification */}
+      <UpdateModal
+        updateInfo={updateInfo}
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+      />
     </div>
   );
 }
