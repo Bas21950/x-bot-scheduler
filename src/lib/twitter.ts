@@ -1,21 +1,33 @@
 import { TwitterApi } from 'twitter-api-v2';
 
+function cleanSecret(val?: string | null): string {
+  if (!val) return '';
+  return val
+    .trim()
+    .replace(/^["']+|["']+$/g, '')
+    .replaceAll('\\r', '')
+    .replaceAll('\\n', '')
+    .replaceAll('\r', '')
+    .replaceAll('\n', '')
+    .trim();
+}
+
 export function isTwitterConfigured(): boolean {
   const hasOAuth1 = Boolean(
-    process.env.X_API_KEY &&
-    process.env.X_API_SECRET &&
-    process.env.X_ACCESS_TOKEN &&
-    process.env.X_ACCESS_TOKEN_SECRET
+    cleanSecret(process.env.X_API_KEY) &&
+    cleanSecret(process.env.X_API_SECRET) &&
+    cleanSecret(process.env.X_ACCESS_TOKEN) &&
+    cleanSecret(process.env.X_ACCESS_TOKEN_SECRET)
   );
-  const hasOAuth2 = Boolean(process.env.X_OAUTH2_ACCESS_TOKEN);
+  const hasOAuth2 = Boolean(cleanSecret(process.env.X_OAUTH2_ACCESS_TOKEN));
   return hasOAuth1 || hasOAuth2;
 }
 
 export function getTwitterClient() {
-  const appKey = process.env.X_API_KEY;
-  const appSecret = process.env.X_API_SECRET;
-  const accessToken = process.env.X_ACCESS_TOKEN;
-  const accessSecret = process.env.X_ACCESS_TOKEN_SECRET;
+  const appKey = cleanSecret(process.env.X_API_KEY);
+  const appSecret = cleanSecret(process.env.X_API_SECRET);
+  const accessToken = cleanSecret(process.env.X_ACCESS_TOKEN);
+  const accessSecret = cleanSecret(process.env.X_ACCESS_TOKEN_SECRET);
 
   if (appKey && appSecret && accessToken && accessSecret) {
     return new TwitterApi({
@@ -26,8 +38,9 @@ export function getTwitterClient() {
     });
   }
 
-  if (process.env.X_OAUTH2_ACCESS_TOKEN) {
-    return new TwitterApi(process.env.X_OAUTH2_ACCESS_TOKEN);
+  const oauth2 = cleanSecret(process.env.X_OAUTH2_ACCESS_TOKEN);
+  if (oauth2) {
+    return new TwitterApi(oauth2);
   }
 
   throw new Error('กรุณากรอก X API Keys & Access Tokens ในไฟล์ .env.local ให้ครบถ้วนก่อน');
@@ -42,7 +55,7 @@ export async function sendTweet(
   let mediaId: string | undefined = undefined;
 
   if (imageUrl && imageUrl.trim().length > 0) {
-    if (!process.env.X_ACCESS_TOKEN || !process.env.X_ACCESS_TOKEN_SECRET) {
+    if (!cleanSecret(process.env.X_ACCESS_TOKEN) || !cleanSecret(process.env.X_ACCESS_TOKEN_SECRET)) {
       throw new Error(
         'การโพสต์พร้อมรูปภาพจำเป็นต้องใช้ Access Token & Secret จากหัวข้อ OAuth 1.0 Keys ในหน้า Developer Console (เนื่องจาก X กำหนดว่า media upload ต้องใช้ OAuth 1.0a)'
       );
@@ -72,6 +85,8 @@ export async function sendTweet(
       } else {
         buffer = Buffer.from(imageUrl, 'base64');
       }
+
+      if (mimeType === 'image/jpg') mimeType = 'image/jpeg';
 
       mediaId = await client.v1.uploadMedia(buffer, { mimeType });
     } catch (uploadErr: any) {
