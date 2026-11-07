@@ -170,6 +170,13 @@ export default function Dashboard() {
   useEffect(() => {
     fetchData();
     checkUpdate(false);
+
+    // Check if just updated
+    const justUpdated = localStorage.getItem('just_updated_version');
+    if (justUpdated) {
+      showToast(`🎉 อัปเดตเป็นเวอร์ชัน v${justUpdated} สำเร็จเรียบร้อยแล้ว!`, 'success');
+      localStorage.removeItem('just_updated_version');
+    }
   }, []);
 
   // Handle Image Selection

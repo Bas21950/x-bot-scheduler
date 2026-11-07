@@ -1,7 +1,10 @@
 'use client';
 
-import React from 'react';
-import { Sparkles, Download, X, ExternalLink, Calendar, CheckCircle2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { 
+  Sparkles, RefreshCw, X, ExternalLink, Calendar, CheckCircle2, 
+  ArrowRight, ShieldCheck, Zap
+} from 'lucide-react';
 
 export interface UpdateInfo {
   currentVersion: string;
@@ -21,7 +24,55 @@ interface UpdateModalProps {
 }
 
 export default function UpdateModal({ updateInfo, isOpen, onClose }: UpdateModalProps) {
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [stepText, setStepText] = useState('');
+
   if (!isOpen || !updateInfo) return null;
+
+  const handleAutoUpdate = async () => {
+    try {
+      setIsUpdating(true);
+      
+      // Step 1: Downloading
+      setStepText('กำลังดาวน์โหลดแพ็คเกจเวอร์ชันใหม่...');
+      setProgress(25);
+      await new Promise(r => setTimeout(r, 600));
+
+      // Step 2: Updating Service Workers
+      setStepText('กำลังอัปเดต Service Worker & Core Cache...');
+      setProgress(55);
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          await reg.update();
+        }
+      }
+      await new Promise(r => setTimeout(r, 600));
+
+      // Step 3: Clearing Old Assets Cache
+      setStepText('กำลังติดตั้งไฟล์ระบบและล้างแคชเก่า...');
+      setProgress(85);
+      if ('caches' in window) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map(k => caches.delete(k)));
+      }
+      await new Promise(r => setTimeout(r, 700));
+
+      // Step 4: Finished & Restart
+      setStepText('อัปเดตสำเร็จ! กำลังรีสตาร์ทแอพ...');
+      setProgress(100);
+      localStorage.setItem('just_updated_version', updateInfo.latestVersion);
+      await new Promise(r => setTimeout(r, 600));
+
+      // Hard reload with timestamp to bypass any browser cache
+      window.location.href = window.location.pathname + '?updated=' + Date.now();
+    } catch (err: any) {
+      console.error('Update error:', err);
+      setStepText('เกิดข้อผิดพลาดในการอัปเดตอัตโนมัติ');
+      setIsUpdating(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -33,13 +84,13 @@ export default function UpdateModal({ updateInfo, isOpen, onClose }: UpdateModal
         <div className="flex items-start justify-between mb-4 relative z-10">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400">
-              <Sparkles className="w-6 h-6 animate-pulse" />
+              <Zap className="w-6 h-6 animate-pulse" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-lg text-white">มีเวอร์ชันใหม่พร้อมใช้งาน!</h3>
+                <h3 className="font-bold text-lg text-white">พบการอัปเดตเวอร์ชันใหม่!</h3>
                 <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800/40">
-                  New Update
+                  Ready to install
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -47,12 +98,14 @@ export default function UpdateModal({ updateInfo, isOpen, onClose }: UpdateModal
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-xl hover:bg-slate-800 transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {!isUpdating && (
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-white p-1 rounded-xl hover:bg-slate-800 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* Release Metadata */}
@@ -68,34 +121,67 @@ export default function UpdateModal({ updateInfo, isOpen, onClose }: UpdateModal
           <label className="block text-xs font-semibold text-slate-300 mb-1.5">
             รายละเอียดการอัปเดต (Changelog):
           </label>
-          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 max-h-56 overflow-y-auto text-xs text-slate-300 whitespace-pre-wrap leading-relaxed font-sans scrollbar-thin">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 max-h-52 overflow-y-auto text-xs text-slate-300 whitespace-pre-wrap leading-relaxed font-sans scrollbar-thin">
             {updateInfo.releaseNotes || 'ไม่มีรายละเอียดเพิ่มเติม'}
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition"
-          >
-            เตือนฉันภายหลัง
-          </button>
-          
-          {updateInfo.downloadUrl && (
-            <a
-              href={updateInfo.downloadUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-white flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 transition"
-            >
-              <Download className="w-4 h-4" />
-              <span>ดาวน์โหลดอัปเดต</span>
-              <ExternalLink className="w-3 h-3 opacity-70" />
-            </a>
-          )}
-        </div>
+        {/* Update Progress State */}
+        {isUpdating ? (
+          <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+            <div className="flex items-center justify-between text-xs font-medium">
+              <span className="text-sky-400 flex items-center gap-2">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>{stepText}</span>
+              </span>
+              <span className="font-mono text-slate-400">{progress}%</span>
+            </div>
+            {/* Progress bar */}
+            <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden border border-slate-800">
+              <div 
+                className="bg-gradient-to-r from-sky-500 to-emerald-400 h-full rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-slate-500 text-center">
+              กรุณาอย่าปิดหน้าต่าง แอพจะทำการติดตั้งและรีสตาร์ทให้อัตโนมัติในไม่กี่วินาที
+            </p>
+          </div>
+        ) : (
+          /* Action Buttons */
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-800">
+            {updateInfo.releaseUrl ? (
+              <a
+                href={updateInfo.releaseUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-slate-500 hover:text-slate-300 flex items-center gap-1 transition"
+              >
+                <span>ดูโค้ดบน GitHub</span>
+                <ExternalLink className="w-3 h-3 opacity-60" />
+              </a>
+            ) : <div />}
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              >
+                เตือนฉันภายหลัง
+              </button>
+              
+              <button
+                type="button"
+                onClick={handleAutoUpdate}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-white flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 transition cursor-pointer"
+              >
+                <Zap className="w-3.5 h-3.5 fill-current" />
+                <span>ติดตั้งและอัปเดตอัตโนมัติ</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

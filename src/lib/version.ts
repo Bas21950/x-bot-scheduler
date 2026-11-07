@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 export const GITHUB_REPO = 'Bas21950/x-bot-scheduler';
 
 /**
