@@ -8,11 +8,10 @@ export async function GET() {
         'Accept': 'application/vnd.github.v3+json',
         'User-Agent': 'x-bot-scheduler-app-client',
       },
-      next: { revalidate: 60 },
+      next: { revalidate: 15 }, // Cache on server for 15s to prevent GitHub rate limits while providing near realtime checks
     });
 
     if (res.status === 404 || res.status === 403) {
-      // 404: No releases yet, or 403: Rate limited on shared cloud IP
       return NextResponse.json({
         success: true,
         currentVersion: APP_VERSION,

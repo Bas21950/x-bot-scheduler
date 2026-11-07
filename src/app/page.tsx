@@ -177,6 +177,26 @@ export default function Dashboard() {
       showToast(`🎉 อัปเดตเป็นเวอร์ชัน v${justUpdated} สำเร็จเรียบร้อยแล้ว!`, 'success');
       localStorage.removeItem('just_updated_version');
     }
+
+    // Background Auto-Polling: Check every 20 seconds without needing to refresh
+    const intervalId = setInterval(() => {
+      checkUpdate(false);
+    }, 20000);
+
+    // Window Focus / Tab Switch: Check immediately when user switches to app
+    const handleFocusOrVisible = () => {
+      if (document.visibilityState === 'visible') {
+        checkUpdate(false);
+      }
+    };
+    window.addEventListener('visibilitychange', handleFocusOrVisible);
+    window.addEventListener('focus', handleFocusOrVisible);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('visibilitychange', handleFocusOrVisible);
+      window.removeEventListener('focus', handleFocusOrVisible);
+    };
   }, []);
 
   // Handle Image Selection
