@@ -1,12 +1,14 @@
 import { TwitterApi } from 'twitter-api-v2';
 
 export function isTwitterConfigured(): boolean {
-  const appKey = process.env.X_API_KEY;
-  const appSecret = process.env.X_API_SECRET;
-  const accessToken = process.env.X_ACCESS_TOKEN;
-  const accessSecret = process.env.X_ACCESS_TOKEN_SECRET;
-
-  return Boolean(appKey && appSecret && accessToken && accessSecret);
+  const hasOAuth1 = Boolean(
+    process.env.X_API_KEY &&
+    process.env.X_API_SECRET &&
+    process.env.X_ACCESS_TOKEN &&
+    process.env.X_ACCESS_TOKEN_SECRET
+  );
+  const hasOAuth2 = Boolean(process.env.X_OAUTH2_ACCESS_TOKEN);
+  return hasOAuth1 || hasOAuth2;
 }
 
 export function getTwitterClient() {
@@ -15,16 +17,20 @@ export function getTwitterClient() {
   const accessToken = process.env.X_ACCESS_TOKEN;
   const accessSecret = process.env.X_ACCESS_TOKEN_SECRET;
 
-  if (!appKey || !appSecret || !accessToken || !accessSecret) {
-    throw new Error('กรุณากรอก X API Keys & Access Tokens ในไฟล์ .env.local ให้ครบถ้วนก่อน');
+  if (appKey && appSecret && accessToken && accessSecret) {
+    return new TwitterApi({
+      appKey,
+      appSecret,
+      accessToken,
+      accessSecret,
+    });
   }
 
-  return new TwitterApi({
-    appKey,
-    appSecret,
-    accessToken,
-    accessSecret,
-  });
+  if (process.env.X_OAUTH2_ACCESS_TOKEN) {
+    return new TwitterApi(process.env.X_OAUTH2_ACCESS_TOKEN);
+  }
+
+  throw new Error('กรุณากรอก X API Keys & Access Tokens ในไฟล์ .env.local ให้ครบถ้วนก่อน');
 }
 
 export async function sendTweet(
@@ -36,12 +42,17 @@ export async function sendTweet(
   let mediaId: string | undefined = undefined;
 
   if (imageUrl && imageUrl.trim().length > 0) {
+    if (!process.env.X_ACCESS_TOKEN || !process.env.X_ACCESS_TOKEN_SECRET) {
+      throw new Error(
+        'การโพสต์พร้อมรูปภาพจำเป็นต้องใช้ Access Token & Secret จากหัวข้อ OAuth 1.0 Keys ในหน้า Developer Console (เนื่องจาก X กำหนดว่า media upload ต้องใช้ OAuth 1.0a)'
+      );
+    }
+
     try {
       let buffer: Buffer;
       let mimeType = 'image/jpeg';
 
       if (imageUrl.startsWith('data:')) {
-        // Base64 Data URI (e.g. data:image/png;base64,....)
         const matches = imageUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
         if (matches && matches.length === 3) {
           mimeType = matches[1];
@@ -50,21 +61,18 @@ export async function sendTweet(
           buffer = Buffer.from(imageUrl.split(',')[1] || imageUrl, 'base64');
         }
       } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-        // Remote Image URL
         const res = await fetch(imageUrl);
         if (!res.ok) {
-          throw new Error(`Failed to fetch image from URL: ${res.statusText}`);
+          throw new Error(`Failed to fetch image: ${res.statusText}`);
         }
         const contentType = res.headers.get('content-type');
         if (contentType) mimeType = contentType;
         const arrayBuffer = await res.arrayBuffer();
         buffer = Buffer.from(arrayBuffer);
       } else {
-        // Plain base64
         buffer = Buffer.from(imageUrl, 'base64');
       }
 
-      // Upload media using client.v1.uploadMedia
       mediaId = await client.v1.uploadMedia(buffer, { mimeType });
     } catch (uploadErr: any) {
       console.error('Error uploading media to X:', uploadErr);
@@ -72,7 +80,6 @@ export async function sendTweet(
     }
   }
 
-  // Post Tweet using v2
   const tweetPayload: any = { text };
   if (mediaId) {
     tweetPayload.media = { media_ids: [mediaId] };
