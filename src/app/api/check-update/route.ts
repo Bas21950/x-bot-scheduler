@@ -6,31 +6,35 @@ export async function GET() {
     const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
       headers: {
         'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'x-bot-scheduler-app',
+        'User-Agent': 'x-bot-scheduler-app-client',
       },
-      next: { revalidate: 60 }, // Cache for 60 seconds
+      next: { revalidate: 60 },
     });
 
-    if (res.status === 404) {
-      // No releases yet on GitHub
+    if (res.status === 404 || res.status === 403) {
+      // 404: No releases yet, or 403: Rate limited on shared cloud IP
       return NextResponse.json({
         success: true,
         currentVersion: APP_VERSION,
         latestVersion: APP_VERSION,
         hasUpdate: false,
-        message: 'No releases found on GitHub repository',
+        message: res.status === 403 ? 'GitHub API rate limited' : 'No releases found on GitHub repository',
       });
     }
 
     if (!res.ok) {
-      throw new Error(`GitHub API returned status ${res.status}`);
+      return NextResponse.json({
+        success: true,
+        currentVersion: APP_VERSION,
+        latestVersion: APP_VERSION,
+        hasUpdate: false,
+      });
     }
 
     const release = await res.json();
     const latestVersion = (release.tag_name || '').replace(/^v/, '');
     const hasUpdate = compareVersions(latestVersion, APP_VERSION) > 0;
 
-    // Look for Windows installer asset (e.g. .exe)
     const exeAsset = release.assets?.find((a: any) => a.name?.endsWith('.exe'));
     const downloadUrl = exeAsset?.browser_download_url || release.html_url;
 
@@ -46,12 +50,12 @@ export async function GET() {
       releaseUrl: release.html_url,
     });
   } catch (error: any) {
-    console.error('Error checking for update:', error);
+    console.error('Error checking for update:', error.message);
     return NextResponse.json({
-      success: false,
-      error: error.message,
+      success: true,
       currentVersion: APP_VERSION,
+      latestVersion: APP_VERSION,
       hasUpdate: false,
-    }, { status: 500 });
+    });
   }
 }

@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Send, Plus, RefreshCw, Trash2, Edit3, CheckCircle2, AlertCircle, 
   Clock, Play, Pause, ExternalLink, Sparkles, Layers, Sliders, 
-  History, ArrowRight, Check, X, ShieldAlert, Copy, Image as ImageIcon
+  History, ArrowRight, Check, X, ShieldAlert, Copy, Image as ImageIcon,
+  Download
 } from 'lucide-react';
 import UpdateModal, { UpdateInfo } from '@/components/UpdateModal';
 import { APP_VERSION } from '@/lib/version';
@@ -93,6 +94,31 @@ export default function Dashboard() {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+
+  // PWA Install Prompt
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [canInstall, setCanInstall] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setCanInstall(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallPWA = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      showToast('🎉 ติดตั้งแอพลงเครื่องเรียบร้อยแล้ว!', 'success');
+    }
+    setDeferredPrompt(null);
+    setCanInstall(false);
+  };
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -383,9 +409,11 @@ export default function Dashboard() {
       <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 font-bold">
-              <XLogo className="w-5 h-5" />
-            </div>
+            <img 
+              src="/icons/icon-192x192.png" 
+              alt="X Bot Scheduler Icon" 
+              className="w-10 h-10 rounded-xl shadow-lg border border-sky-500/30 object-cover"
+            />
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-bold text-base tracking-tight text-white">X Auto-Poster & Scheduler</h1>
@@ -395,8 +423,19 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Bot Live Status Pill & Version */}
+          {/* Bot Live Status Pill & Version & PWA Install */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {canInstall && (
+              <button
+                onClick={handleInstallPWA}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-xs text-emerald-300 hover:text-white hover:bg-emerald-900 transition font-medium cursor-pointer animate-pulse"
+                title="ติดตั้งแอพลงบนหน้า Desktop / มือถือ"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                <span>ติดตั้งแอพ (PWA)</span>
+              </button>
+            )}
+
             <button
               onClick={() => checkUpdate(true)}
               disabled={isCheckingUpdate}

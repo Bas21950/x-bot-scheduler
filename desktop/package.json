@@ -1,0 +1,36 @@
+{
+  "name": "x-bot-scheduler-desktop",
+  "version": "1.0.0",
+  "description": "X Auto-Poster & Scheduler Desktop Client",
+  "main": "main.js",
+  "author": "OneStop AI",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.onestopai.xbotscheduler",
+    "productName": "X Bot Scheduler",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "X Bot Scheduler"
+    }
+  }
+}
