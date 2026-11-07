@@ -39,13 +39,13 @@ export default function UpdateModal({ updateInfo, isOpen, onClose }: UpdateModal
       setProgress(25);
       await new Promise(r => setTimeout(r, 600));
 
-      // Step 2: Updating Service Workers
+      // Step 2: Refreshing Service Workers & Cache
       setStepText('กำลังอัปเดต Service Worker & Core Cache...');
       setProgress(55);
       if ('serviceWorker' in navigator) {
         const registrations = await navigator.serviceWorker.getRegistrations();
         for (const reg of registrations) {
-          await reg.update();
+          await reg.unregister();
         }
       }
       await new Promise(r => setTimeout(r, 600));
@@ -62,11 +62,12 @@ export default function UpdateModal({ updateInfo, isOpen, onClose }: UpdateModal
       // Step 4: Finished & Restart
       setStepText('อัปเดตสำเร็จ! กำลังรีสตาร์ทแอพ...');
       setProgress(100);
+      sessionStorage.setItem('dismissed_update_version', updateInfo.latestVersion);
       localStorage.setItem('just_updated_version', updateInfo.latestVersion);
       await new Promise(r => setTimeout(r, 600));
 
-      // Hard reload with timestamp to bypass any browser cache
-      window.location.href = window.location.pathname + '?updated=' + Date.now();
+      // Hard reload with cache buster
+      window.location.replace(window.location.origin + window.location.pathname + '?updated=' + Date.now());
     } catch (err: any) {
       console.error('Update error:', err);
       setStepText('เกิดข้อผิดพลาดในการอัปเดตอัตโนมัติ');

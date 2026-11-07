@@ -133,7 +133,11 @@ export default function Dashboard() {
       if (data.success) {
         setUpdateInfo(data);
         if (data.hasUpdate) {
-          setShowUpdateModal(true);
+          // If automatic check, only show popup if user hasn't dismissed this version in current session
+          const dismissed = sessionStorage.getItem('dismissed_update_version');
+          if (manual || dismissed !== data.latestVersion) {
+            setShowUpdateModal(true);
+          }
         } else if (manual) {
           showToast(`คุณใช้งานเวอร์ชันล่าสุดแล้ว (v${APP_VERSION})`, 'success');
         }
@@ -143,6 +147,13 @@ export default function Dashboard() {
     } finally {
       if (manual) setIsCheckingUpdate(false);
     }
+  };
+
+  const handleDismissUpdate = () => {
+    if (updateInfo?.latestVersion) {
+      sessionStorage.setItem('dismissed_update_version', updateInfo.latestVersion);
+    }
+    setShowUpdateModal(false);
   };
 
   const fetchData = async () => {
@@ -1191,7 +1202,7 @@ export default function Dashboard() {
       <UpdateModal
         updateInfo={updateInfo}
         isOpen={showUpdateModal}
-        onClose={() => setShowUpdateModal(false)}
+        onClose={handleDismissUpdate}
       />
     </div>
   );
