@@ -1,8 +1,8 @@
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.2.0';
 export const GITHUB_REPO = 'Bas21950/x-bot-scheduler';
 
 /**
- * Compare two semver-like strings (e.g., "1.1.0" > "1.0.0")
+ * Compare two semver-like strings (e.g., "1.2.0" > "1.1.0")
  * Returns:
  *   1 if v1 > v2
  *  -1 if v1 < v2
