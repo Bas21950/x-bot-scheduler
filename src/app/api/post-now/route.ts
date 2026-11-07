@@ -5,7 +5,7 @@ import { addLog, incrementPostCount, updateLastRun } from '@/lib/db';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { text, postId } = body;
+    const { text, imageUrl, postId } = body;
 
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       return NextResponse.json({ success: false, error: 'ข้อความต้องไม่ว่างเปล่า' }, { status: 400 });
@@ -24,11 +24,11 @@ export async function POST(req: Request) {
     }
 
     try {
-      // Send to X API v2
-      const tweetResult = await sendTweet(trimmed);
+      // Send to X API v2 (with media support)
+      const tweetResult = await sendTweet(trimmed, imageUrl || null);
 
       // Record log in DB
-      await addLog(postId ? Number(postId) : null, trimmed, tweetResult.id, 'success');
+      await addLog(postId ? Number(postId) : null, trimmed, imageUrl || null, tweetResult.id, 'success');
 
       // Update post count if associated with a post in database
       if (postId) {
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
       const errMsg = twitterErr?.data?.detail || twitterErr?.message || 'ไม่สามารถส่งโพสต์ขึ้น X ได้';
       
       // Save failure to log
-      await addLog(postId ? Number(postId) : null, trimmed, null, 'failed', errMsg);
+      await addLog(postId ? Number(postId) : null, trimmed, imageUrl || null, null, 'failed', errMsg);
 
       return NextResponse.json({
         success: false,

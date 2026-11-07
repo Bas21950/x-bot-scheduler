@@ -14,7 +14,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { content, status = 'pending' } = body;
+    const { content, imageUrl, status = 'pending' } = body;
 
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
       return NextResponse.json({ success: false, error: 'Content cannot be empty' }, { status: 400 });
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Content exceeds 280 characters' }, { status: 400 });
     }
 
-    const newPost = await createPost(content.trim(), status);
+    const newPost = await createPost(content.trim(), imageUrl || null, status);
     return NextResponse.json({ success: true, post: newPost });
   } catch (error: any) {
     console.error('Error creating post:', error);

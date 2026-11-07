@@ -13,13 +13,17 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { content, status } = body;
+    const { content, imageUrl, status } = body;
 
     if (content !== undefined && content.length > 280) {
       return NextResponse.json({ success: false, error: 'Content exceeds 280 characters' }, { status: 400 });
     }
 
-    const updated = await updatePost(postId, { content, status });
+    const updated = await updatePost(postId, {
+      content,
+      image_url: imageUrl,
+      status,
+    });
     return NextResponse.json({ success: true, post: updated });
   } catch (error: any) {
     console.error('Error updating post:', error);

@@ -63,12 +63,12 @@ async function handleAutoPost(req: Request) {
       }, { status: 400 });
     }
 
-    // 4. Send tweet to X
+    // 4. Send tweet to X with image if attached
     try {
-      const tweetResult = await sendTweet(post.content);
+      const tweetResult = await sendTweet(post.content, post.image_url);
 
       // 5. Update DB
-      await addLog(post.id, post.content, tweetResult.id, 'success');
+      await addLog(post.id, post.content, post.image_url, tweetResult.id, 'success');
       await incrementPostCount(post.id);
       await updateLastRun();
 
@@ -79,12 +79,13 @@ async function handleAutoPost(req: Request) {
         tweetId: tweetResult.id,
         tweetUrl: `https://x.com/user/status/${tweetResult.id}`,
         content: post.content,
+        imageUrl: post.image_url,
       });
     } catch (twitterErr: any) {
       console.error('Twitter API execution error in cron:', twitterErr);
       const errMsg = twitterErr?.data?.detail || twitterErr?.message || 'ไม่สามารถส่งโพสต์ขึ้น X ได้';
       
-      await addLog(post.id, post.content, null, 'failed', errMsg);
+      await addLog(post.id, post.content, post.image_url, null, 'failed', errMsg);
 
       return NextResponse.json({
         success: false,

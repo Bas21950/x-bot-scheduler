@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useTransition } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Send, Plus, RefreshCw, Trash2, Edit3, CheckCircle2, AlertCircle, 
   Clock, Play, Pause, ExternalLink, Sparkles, Layers, Sliders, 
-  History, ArrowRight, Check, X, ShieldAlert, Copy
+  History, ArrowRight, Check, X, ShieldAlert, Copy, Image as ImageIcon
 } from 'lucide-react';
 
 function XLogo({ className = "w-5 h-5" }: { className?: string }) {
@@ -18,6 +18,7 @@ function XLogo({ className = "w-5 h-5" }: { className?: string }) {
 interface Post {
   id: number;
   content: string;
+  image_url: string | null;
   status: 'pending' | 'posted' | 'draft' | 'archived';
   post_count: number;
   created_at: string;
@@ -37,6 +38,7 @@ interface PostLog {
   id: number;
   post_id: number | null;
   content: string;
+  image_url: string | null;
   tweet_id: string | null;
   status: 'success' | 'failed';
   error_message: string | null;
@@ -61,8 +63,10 @@ export default function Dashboard() {
 
   // New Post Form State
   const [newContent, setNewContent] = useState('');
+  const [newImage, setNewImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [postImmediately, setPostImmediately] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Bulk Add Modal
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -72,7 +76,9 @@ export default function Dashboard() {
   // Edit Post Modal
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [editContent, setEditContent] = useState('');
+  const [editImage, setEditImage] = useState<string | null>(null);
   const [editStatus, setEditStatus] = useState<string>('pending');
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   // Filter
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -112,6 +118,28 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
+  // Handle Image Selection
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('ขนาดรูปภาพต้องไม่เกิน 5MB', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      if (isEdit) {
+        setEditImage(base64);
+      } else {
+        setNewImage(base64);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Handle Create Post
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,12 +152,14 @@ export default function Dashboard() {
         const res = await fetch('/api/post-now', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: newContent }),
+          body: JSON.stringify({ text: newContent, imageUrl: newImage }),
         });
         const data = await res.json();
         if (data.success) {
           showToast('🚀 โพสต์ขึ้น X เรียบร้อยแล้ว!', 'success');
           setNewContent('');
+          setNewImage(null);
+          if (fileInputRef.current) fileInputRef.current.value = '';
           fetchData();
         } else {
           showToast('❌ ไม่สามารถโพสต์ได้: ' + data.error, 'error');
@@ -139,12 +169,14 @@ export default function Dashboard() {
         const res = await fetch('/api/posts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: newContent, status: 'pending' }),
+          body: JSON.stringify({ content: newContent, imageUrl: newImage, status: 'pending' }),
         });
         const data = await res.json();
         if (data.success) {
           showToast('บันทึกเข้าคลังโพสต์แล้ว', 'success');
           setNewContent('');
+          setNewImage(null);
+          if (fileInputRef.current) fileInputRef.current.value = '';
           setPosts([data.post, ...posts]);
         } else {
           showToast('เกิดข้อผิดพลาด: ' + data.error, 'error');
@@ -201,7 +233,7 @@ export default function Dashboard() {
       const res = await fetch('/api/post-now', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: post.content, postId: post.id }),
+        body: JSON.stringify({ text: post.content, imageUrl: post.image_url, postId: post.id }),
       });
       const data = await res.json();
       if (data.success) {
@@ -237,7 +269,11 @@ export default function Dashboard() {
       const res = await fetch(`/api/posts/${editingPost.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: editContent.trim(), status: editStatus }),
+        body: JSON.stringify({ 
+          content: editContent.trim(), 
+          imageUrl: editImage,
+          status: editStatus 
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -327,7 +363,7 @@ export default function Dashboard() {
                 <h1 className="font-bold text-base tracking-tight text-white">X Auto-Poster & Scheduler</h1>
                 <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-slate-700">OneStop AI</span>
               </div>
-              <p className="text-xs text-slate-400">ระบบโพสต์อัตโนมัติด้วย Neon Postgres & Vercel</p>
+              <p className="text-xs text-slate-400">ระบบโพสต์ข้อความและรูปภาพอัตโนมัติด้วย Neon Postgres & Vercel</p>
             </div>
           </div>
 
@@ -420,7 +456,7 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
                     <Sparkles className="w-4 h-4 text-sky-400" />
-                    <span>เขียนข้อความสำหรับโพสต์</span>
+                    <span>เขียนข้อความและแนบรูปภาพสำหรับโพสต์</span>
                   </div>
                   <button
                     type="button"
@@ -428,7 +464,7 @@ export default function Dashboard() {
                     className="text-xs text-sky-400 hover:text-sky-300 font-medium flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-950/40 border border-sky-800/40 hover:bg-sky-900/50 transition"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    เพิ่มทีละหลายโพสต์ (Bulk Add)
+                    เพิ่มข้อความจำนวนมาก (Bulk Add)
                   </button>
                 </div>
 
@@ -449,16 +485,61 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800/60">
-                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={postImmediately}
-                      onChange={(e) => setPostImmediately(e.target.checked)}
-                      className="rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-0 focus:ring-offset-0"
+                {/* Attached Image Preview */}
+                {newImage && (
+                  <div className="mt-3 relative inline-block group">
+                    <img 
+                      src={newImage} 
+                      alt="Attached preview" 
+                      className="h-28 w-auto rounded-xl object-cover border border-slate-700 shadow-md"
                     />
-                    <span>โพสต์ขึ้น X ทันทีเดี๋ยวนี้ (ไม่เข้าคิว)</span>
-                  </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewImage(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                      className="absolute -top-2 -right-2 bg-rose-600 text-white p-1 rounded-full shadow-lg hover:bg-rose-500 transition"
+                      title="ลบรูปภาพ"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800/60">
+                  <div className="flex items-center gap-4">
+                    {/* Image Attachment Button */}
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={(e) => handleImageChange(e, false)}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                        newImage 
+                          ? 'bg-sky-950 text-sky-400 border-sky-800' 
+                          : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      <ImageIcon className="w-3.5 h-3.5 text-sky-400" />
+                      <span>{newImage ? 'เปลี่ยนรูปภาพ' : 'แนบรูปภาพ'}</span>
+                    </button>
+
+                    <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={postImmediately}
+                        onChange={(e) => setPostImmediately(e.target.checked)}
+                        className="rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-0 focus:ring-offset-0"
+                      />
+                      <span>โพสต์ขึ้น X ทันที (ไม่เข้าคิว)</span>
+                    </label>
+                  </div>
 
                   <div className="flex items-center gap-2">
                     <button
@@ -559,6 +640,17 @@ export default function Dashboard() {
                       <p className="text-sm text-slate-200 whitespace-pre-wrap break-words leading-relaxed">
                         {post.content}
                       </p>
+
+                      {/* Post Image Thumbnail */}
+                      {post.image_url && (
+                        <div className="mt-3">
+                          <img 
+                            src={post.image_url} 
+                            alt="Post attached image" 
+                            className="max-h-48 w-full rounded-xl object-cover border border-slate-800"
+                          />
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between">
@@ -579,6 +671,7 @@ export default function Dashboard() {
                           onClick={() => {
                             setEditingPost(post);
                             setEditContent(post.content);
+                            setEditImage(post.image_url);
                             setEditStatus(post.status);
                           }}
                           className="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-800 transition"
@@ -812,6 +905,16 @@ export default function Dashboard() {
 
                       <p className="text-sm text-slate-200 mt-1">{log.content}</p>
 
+                      {log.image_url && (
+                        <div className="mt-2">
+                          <img 
+                            src={log.image_url} 
+                            alt="Logged attached image" 
+                            className="h-24 w-auto rounded-lg object-cover border border-slate-800"
+                          />
+                        </div>
+                      )}
+
                       {log.error_message && (
                         <div className="mt-2 text-xs text-rose-400 bg-rose-950/30 p-2 rounded-lg border border-rose-900/30">
                           <strong>ข้อผิดพลาด:</strong> {log.error_message}
@@ -901,6 +1004,42 @@ export default function Dashboard() {
               onChange={(e) => setEditContent(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-sky-500 mb-3 resize-none"
             />
+
+            {/* Edit Image Attachment */}
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">รูปภาพประกอบ</label>
+              <input
+                type="file"
+                ref={editFileInputRef}
+                onChange={(e) => handleImageChange(e, true)}
+                accept="image/*"
+                className="hidden"
+              />
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => editFileInputRef.current?.click()}
+                  className="px-3 py-1.5 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-lg text-xs font-medium text-slate-200 flex items-center gap-1.5"
+                >
+                  <ImageIcon className="w-3.5 h-3.5 text-sky-400" />
+                  <span>{editImage ? 'เปลี่ยนรูปภาพ' : 'อัปโหลดรูปภาพ'}</span>
+                </button>
+                {editImage && (
+                  <button
+                    type="button"
+                    onClick={() => setEditImage(null)}
+                    className="text-xs text-rose-400 hover:text-rose-300"
+                  >
+                    ลบรูป
+                  </button>
+                )}
+              </div>
+              {editImage && (
+                <div className="mt-2">
+                  <img src={editImage} alt="Edit preview" className="h-24 w-auto rounded-lg object-cover border border-slate-700" />
+                </div>
+              )}
+            </div>
 
             <div className="mb-4">
               <label className="block text-xs font-medium text-slate-400 mb-1.5">สถานะ</label>
